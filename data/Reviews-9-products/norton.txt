@@ -1,4 +1,4 @@
-[t]
+ [t]
 software[-3]##I have read the installation instructions for both NIS 2004 and NAV 2004 prior to installation, but still ended up with the same result...junk software.
 ##Why is it that I can install any other type of software and it installs and works properly?
 Norton products[-3]##But if I installed either one of these Norton products, neither works after installation?
