@@ -1,11 +1,10 @@
 import unittest
 from unittest import TestCase
-
+from opinionmining import *
 
 class POSTaggerTestCase(TestCase):
-    def test_pos(self):
-        self.assertEqual("A", "A")
-        print("Hello Tests")
+    print("Hello World")
+    TextCrawler()
     
 if __name__ == "__main__":
     unittest.main()
