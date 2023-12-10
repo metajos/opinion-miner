@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import re
-from typing import List
+from typing import List, Tuple
 from icecream import ic
 
 basepath = os.getcwd()
@@ -55,31 +55,6 @@ def recurse_remove(stream, pattern):
         return recurse_remove(stream, pattern)
 
 
-# def preprocess_pipeline(filepath: str) -> list[str]:
-#     try:
-#         raw_text = parsefile(filepath)
-#         clean_of_annotations_text = remove_annotation(stream=raw_text)
-#         clean_of_review_titles_text = remove_titles(stream=clean_of_annotations_text)
-#         tuples = split_stream(clean_of_review_titles_text)
-#         return tuples
-#     except AssertionError as e:
-#         print(e)
-
-
-def read_files():
-    for folder in os.listdir(full_path):
-        try:
-            for file in os.listdir(os.path.join(full_path, folder)):
-                if str(file) != "Readme.txt" and str(file) != ".DS_Store":
-                    try:
-                        preprocessed_tuples = preprocess_pipeline(os.path.join(full_path, folder, file))
-                        return preprocessed_tuples
-                    except Exception as e:
-                        print(e)
-        except NotADirectoryError:
-            pass
-
-
 class Product:
     def __init__(self, product, string):
         self.product: str = product
@@ -91,7 +66,15 @@ class Product:
         return f"{self.product}, revcount:{len(self.reviews)}"
 
     def __repr__(self) -> str:
-        return f"{self.product}, #Reviews:{len(self.reviews)}, #Sentences:{len([sentence. for sentence in self.reviews])}"
+        return f"{self.product}, #Reviews:{len(self.reviews)}, #Sentences:{len(self.get_sentences())}"
+
+    def get_sentences(self):
+        sentences = []
+        for review in self.reviews:
+            sentences_ = review.sentences
+            for sent in sentences_:
+                sentences.append(sent)
+        return sentences
 
     def parse_reviews(self, stream: str) -> list:
         review_list: list[Review] = []
@@ -138,39 +121,13 @@ class Product:
 
 class Review:
     def __init__(self, product: Product, string: str):
-        self.id: str = None
-        self.product: Product = product
-        self.raw_review: str = string
-        self.sentences: list[Sentence] = []
-        self.is_single_ln = False
+        self.id: str = str(hash(string)).split(" ")[-1]
+        self.product_id: str = str(hash(product)).split(" ")[-1]
+        # Process each review into its subsequent sentences
+        self.sentence_tuples:list[tuple] = self.split_stream(string)
+        self.sentences: list[Sentence] = [Sentence(self.id, self.product_id, score, sent) for (score, sent) in self.sentence_tuples]
 
-    def split_lines(self, string):
-        lns = string.split("\n")
-        if len(lns) <= 1:
-            return [Sentence(review=self, product=self.product, string=string)]
-        else:
-            sentences = []
-            for ln in lns:
-                sentences.append(Sentence(review=self, product=self.product, string=string))
-
-    def __str__(self) -> str:
-        return f"review: {self.raw_review}"
-
-    def __repr__(self) -> str:
-        return f"review: {self.raw_review}"
-
-
-class Sentence:
-    def __init__(self, review, product, string):
-        self.id: str = None
-        self.product: Product = product
-        self.review: Review = review
-        self.raw_sentence: str = string
-        self.sentence_tuples: list[tuple] = self.split_stream(string)
-        self.user_category_scores: list = []
-        self.extracted_categories: list = []
-
-    def split_stream(self, stream):
+    def split_stream(self, stream:str):
         try:
             split_reviews = stream.split("\n")
             review_tuples = []
@@ -188,6 +145,38 @@ class Sentence:
         except AssertionError as e:
             print(e)
 
+    def __str__(self) -> str:
+        return f"review: {self.raw_review}"
+
+    def __repr__(self) -> str:
+        return f"review: {self.raw_review}"
+
+
+class Sentence:
+    def __init__(self, review_id, product_id, ground_truth_score, string):
+        self.id: str = None
+        self.product_id: Product = product_id
+        self.review_id: Review = review_id
+        self.sentence: str = string
+        self.ground_category_score_tuples = self.extract_ground_scores_and_categories(ground_truth_score)
+        self.user_category_scores: list = []
+        self.extracted_categories: list = []
+
+    def extract_ground_scores_and_categories(self, string)-> List[Tuple[str, int]]:
+        pattern = r"(?:[\w\s-]*?\[[+|-]\d\])"
+        matches = re.findall(pattern, string)
+        category_score_tuples = []
+        if not matches:
+            category_score_tuples.append(("no sentiment", 0))
+        else:
+            for match in matches:
+                score = re.search("(?:[+-]\d)", match).group()
+                text = re.search(r"(?:[\w\s-]*(?=\[))", match).group()
+                category_score_tuples.append((text.lower(), int(score)))
+        ic(category_score_tuples)
+        return category_score_tuples
+
+
 
 def TextCrawler():
     paths = ["data/CustomerReviews-3_domains/Speaker.txt"]
@@ -204,7 +193,6 @@ def TextCrawler():
         except NotADirectoryError:
             pass
 
-    ic(products)
 
 
     # for path in paths:
