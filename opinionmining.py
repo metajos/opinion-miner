@@ -57,18 +57,16 @@ def recurse_remove(stream, pattern):
 
 class Product:
     def __init__(self, product, string):
-        self.product: str = product
+        self.product: str = product.split(".")[0]
         self.reviews: list = self.parse_reviews(string)
-        self.opinions: list = []
-        self.raw_string = string
-
-    def __str__(self) -> str:
-        return f"{self.product}, revcount:{len(self.reviews)}"
+        self.raw_string:str = string
+        self.all_sentences: List[Sentence] = self.get_all_sentences()
+        : List[Tuple[str]]
 
     def __repr__(self) -> str:
-        return f"{self.product}, #Reviews:{len(self.reviews)}, #Sentences:{len(self.get_sentences())}"
+        return f"{self.product.upper()}:R:{len(self.reviews)}:S:{len(self.get_all_sentences())}"
 
-    def get_sentences(self):
+    def get_all_sentences(self):
         sentences = []
         for review in self.reviews:
             sentences_ = review.sentences
@@ -79,7 +77,7 @@ class Product:
     def parse_reviews(self, stream: str) -> list:
         review_list: list[Review] = []
         modified_stream: str = stream
-        # if the review is delimited by [t] symbol, break it into subsets of reviews
+        # if the review is delimited by [t] symbol, break    it into subsets of reviews
         if re.search(pattern=r"(\[t\])", string=stream):
             matches = True
             while matches:
@@ -125,7 +123,7 @@ class Review:
         self.product_id: str = str(hash(product)).split(" ")[-1]
         # Process each review into its subsequent sentences
         self.sentence_tuples:list[tuple] = self.split_stream(string)
-        self.sentences: list[Sentence] = [Sentence(self.id, self.product_id, score, sent) for (score, sent) in self.sentence_tuples]
+        self.sentences: list[Sentence] = [Sentence(self.id, self.product_id, tup[0], tup[1]) for tup in self.sentence_tuples if tup is not None]
 
     def split_stream(self, stream:str):
         try:
@@ -133,7 +131,8 @@ class Review:
             review_tuples = []
             for sent in split_reviews:
                 sent = sent.strip()
-                if sent == "":
+                is_forbidden = re.search(r"(?:[*]+[*]$|^[*]+.*)", sent)
+                if sent == "" or sent is None or is_forbidden is not None:
                     continue
                 split_sent = sent.split("##")
                 assert len(split_sent) == 2, f"This sentence review does not split into two: {sent}"
@@ -151,7 +150,6 @@ class Review:
     def __repr__(self) -> str:
         return f"review: {self.raw_review}"
 
-
 class Sentence:
     def __init__(self, review_id, product_id, ground_truth_score, string):
         self.id: str = None
@@ -159,8 +157,6 @@ class Sentence:
         self.review_id: Review = review_id
         self.sentence: str = string
         self.ground_category_score_tuples = self.extract_ground_scores_and_categories(ground_truth_score)
-        self.user_category_scores: list = []
-        self.extracted_categories: list = []
 
     def extract_ground_scores_and_categories(self, string)-> List[Tuple[str, int]]:
         pattern = r"(?:[\w\s-]*?\[[+|-]\d\])"
@@ -170,37 +166,14 @@ class Sentence:
             category_score_tuples.append(("no sentiment", 0))
         else:
             for match in matches:
-                score = re.search("(?:[+-]\d)", match).group()
+                score = re.search(r"(?:[+-]\d)", match).group()
                 text = re.search(r"(?:[\w\s-]*(?=\[))", match).group()
                 category_score_tuples.append((text.lower(), int(score)))
-        ic(category_score_tuples)
         return category_score_tuples
 
 
 
-def TextCrawler():
-    paths = ["data/CustomerReviews-3_domains/Speaker.txt"]
-    products = []
-    for folder in os.listdir(full_path):
-        try:
-            for file in os.listdir(os.path.join(full_path, folder)):
-                if str(file) != "Readme.txt" and str(file) != ".DS_Store":
-                    try:
-                        contents = parsefile(os.path.join(full_path, folder, file))
-                        products.append(Product(file, contents))
-                    except Exception as e:
-                        print(e)
-        except NotADirectoryError:
-            pass
 
-
-
-    # for path in paths:
-    #     with open(path, "r", encoding="utf-8", newline="\n") as f:
-    #         stream = f.read()
-    #     product_name = path.split("/")[-1]
-    #     product = Product(product_name, stream)
-    #     print(len(product.reviews))
 
 
 
