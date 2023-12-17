@@ -12,8 +12,8 @@ nlp = spacy.load("en_core_web_md")
 basepath = os.getcwd()
 raw_txt_dir = "data"
 full_path = os.path.join(basepath, raw_txt_dir)
-pd.set_option("display.max_columns", 10)
-pd.set_option("display.max_rows", 10)
+pd.set_option("display.max_columns", 50)
+pd.set_option("display.max_rows", 50)
 pd.set_option("display.width", 2000)
 def parsefile(file):
     try:
