@@ -7,6 +7,9 @@ from typing import List, Tuple
 from spacy.language import Doc
 from icecream import ic
 from IPython.display import display
+from nltk.stem import PorterStemmer, LancasterStemmer, SnowballStemmer
+from collections import Counter
+
 
 nlp = spacy.load("en_core_web_md")
 basepath = os.getcwd()
@@ -41,10 +44,6 @@ def split_stream(stream):
         return review_tuples
     except AssertionError as e:
         print(e)
-
-    # def remove_annotation(stream:str) -> str:
-
-
 
 def remove_titles(stream: str) -> str:
     pattern = r"(\[t\].*)"
@@ -242,21 +241,56 @@ class ReviewDatabase:
         return f"products: {[product.name for product in self.products]}"
 
 
+class FeatureExtraction:
 
-# class part_of_speech:
-#
-#     @classmethod
-#     def tag_sentence(cls, sentence):
-#         doc:Doc = nlp(sentence)
-#         return [(token.pos_, token.dep_, token.lemma_) for token in doc]
-#
-#     @classmethod
-#     def noun_phrases(cls, sentence):
-#         doc: Doc = nlp(sentence)
-#
-#         return list(doc.noun_chunks)
+    @classmethod
+    def categories(cls, string):
+        """"""
+        doc = nlp(string.lower())
+        prohibited_ents = {"MONEY", "DATE", "TIME", "QUANTITY", "CARDINAL", "PERCENT"}
+        named_entities = [ents for ents in doc.ents if str(ents.label_) not in prohibited_ents]
+        named_entities_set = set(
+            [token for word in named_entities for token in word if not token.is_punct and not token.is_digit])
+        np = [" ".join([str(ent) for ent in doc.ents if str(ent.label_) not in prohibited_ents])]
+        for chunk in doc.noun_chunks:
+            chunk_ = []
+            for i, token in enumerate(chunk):
+                if token in named_entities_set or token.is_punct or token.is_digit or token.is_stop:
+                    continue
+                if i >= 1:
+                    if str(chunk[i - 1]) == "no":
+                        chunk_.append(f"NOT_{str(token)}")
+                        continue
+                chunk_.append(str(token))
+            if len(chunk_) != 0:
+                np.append("_".join(chunk_))
+        result = [t for t in np if t != ""]
+        return result
 
 
+    @classmethod
+    def stemming(cls, sentence:str, stemmer = None) -> str:
+        doc = nlp(sentence)
+        if stemmer is None:
+            stemmer = SnowballStemmer("english")
+
+
+        return " ".join([stemmer.stem(token.text) for token in doc])
+
+
+    @classmethod
+    def subtree(cls, sentence:str) -> pd.DataFrame:
+        doc = nlp(sentence)
+        df = pd.DataFrame()
+        for t in doc:
+            pos_series = pd.Series({"token": t,
+                                    "pos": t.pos_,
+                                    "lemma": t.lemma_,
+                                    "dep": t.dep_,
+                                    "children": [child for child in t.children]
+                                    })
+            df = pd.concat([df, pos_series.to_frame().T])
+        return df
 
 
 
