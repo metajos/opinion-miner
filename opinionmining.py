@@ -257,26 +257,38 @@ class FeatureExtraction:
             for i, token in enumerate(chunk):
                 if token in named_entities_set or token.is_punct or token.is_digit or token.is_stop:
                     continue
-                if i >= 1:
-                    if str(chunk[i - 1]) == "no":
-                        chunk_.append(f"NOT_{str(token)}")
-                        continue
                 chunk_.append(str(token))
             if len(chunk_) != 0:
-                np.append("_".join(chunk_))
+                np.append(" ".join(chunk_))
         result = [t for t in np if t != ""]
         return result
 
+    @classmethod
+    def is_illegal(cls, token):
+        return any([token.is_punct,
+                    token.is_digit,
+                    ])
+
+
 
     @classmethod
-    def stemming(cls, sentence:str, stemmer = None) -> str:
-        doc = nlp(sentence)
-        if stemmer is None:
-            stemmer = SnowballStemmer("english")
+    def stemming(cls, string_list:List[str], stemmer = None) -> List[str]:
+        stemmed_strings = []
+        for string in string_list:
+            string.replace("-", "")
+            doc = nlp(string)
+            if stemmer is None:
+                stemmer = SnowballStemmer("english")
+            stemmed_strings.append(" ".join([stemmer.stem(token.text) for token in doc if not FeatureExtraction.is_illegal(token)]))
+        return [string for string in stemmed_strings if string != " "]
 
-
-        return " ".join([stemmer.stem(token.text) for token in doc])
-
+    @classmethod
+    def remove_stop(cls, string_list:List[str]) -> List[str]:
+        stemmed_strings = []
+        for string in string_list:
+            doc = nlp(string)
+            stemmed_strings.append(" ".join([token.text for token in doc if not token.is_stop]))
+        return stemmed_strings
 
     @classmethod
     def subtree(cls, sentence:str) -> pd.DataFrame:
