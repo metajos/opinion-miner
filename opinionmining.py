@@ -9,7 +9,8 @@ from icecream import ic
 from IPython.display import display
 from nltk.stem import PorterStemmer, LancasterStemmer, SnowballStemmer
 from collections import Counter
-
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from nltk.metrics import distance
 
 nlp = spacy.load("en_core_web_md")
 basepath = os.getcwd()
@@ -245,8 +246,12 @@ class FeatureExtraction:
 
     @classmethod
     def categories(cls, string):
-        """"""
-        doc = nlp(string.lower())
+        result = FeatureExtraction.extract_nouns(string)
+
+        return result
+    @classmethod
+    def extract_noun_chunks(self, string):
+        doc=nlp(string.lower())
         prohibited_ents = {"MONEY", "DATE", "TIME", "QUANTITY", "CARDINAL", "PERCENT"}
         named_entities = [ents for ents in doc.ents if str(ents.label_) not in prohibited_ents]
         named_entities_set = set(
@@ -261,12 +266,22 @@ class FeatureExtraction:
             if len(chunk_) != 0:
                 np.append(" ".join(chunk_))
         result = [t for t in np if t != ""]
-        return result
+        return  result
+    @classmethod
+    def extract_nouns(cls, string):
+        doc = nlp(string.lower())
+        nouns = []
+        for token in doc:
+            if token.pos_ in ["NOUN", "PROPN"] and not FeatureExtraction.is_illegal(token):
+                nouns.append(token.text)
+        return list(set(nouns))
+
 
     @classmethod
     def is_illegal(cls, token):
         return any([token.is_punct,
                     token.is_digit,
+                    token.is_stop
                     ])
 
 
@@ -304,8 +319,22 @@ class FeatureExtraction:
             df = pd.concat([df, pos_series.to_frame().T])
         return df
 
+    # search through the original words to retrieve the keywords associated to the stem in a new
+    @classmethod
+    def fuzzy_match_categories(cls, test_categories, target_categories):
+        matched_categories = []
+        for word in test_categories:
+            match = FeatureExtraction.fuzzymatch(target_categories, word)
+            if match:
+                matched_categories.append(match)
+        return matched_categories
 
-
+    @classmethod
+    def fuzzymatch(target_words, test_word):
+        for target_word in target_words:
+            if distance.edit_distance(test_word, target_word) <= 1:
+                return target_word
+        return None
 
 
 
