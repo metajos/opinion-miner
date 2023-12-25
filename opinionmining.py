@@ -11,6 +11,7 @@ from nltk.stem import PorterStemmer, LancasterStemmer, SnowballStemmer
 from collections import Counter
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from nltk.metrics import distance
+import itertools
 
 nlp = spacy.load("en_core_web_md")
 basepath = os.getcwd()
@@ -247,26 +248,27 @@ class FeatureExtraction:
     @classmethod
     def categories(cls, string):
         result = FeatureExtraction.extract_nouns(string)
-
+        if result is None:
+            raise ValueError("Category extraction can't return None")
         return result
-    @classmethod
-    def extract_noun_chunks(self, string):
-        doc=nlp(string.lower())
-        prohibited_ents = {"MONEY", "DATE", "TIME", "QUANTITY", "CARDINAL", "PERCENT"}
-        named_entities = [ents for ents in doc.ents if str(ents.label_) not in prohibited_ents]
-        named_entities_set = set(
-            [token for word in named_entities for token in word if not token.is_punct and not token.is_digit])
-        np = [" ".join([str(ent) for ent in doc.ents if str(ent.label_) not in prohibited_ents])]
-        for chunk in doc.noun_chunks:
-            chunk_ = []
-            for i, token in enumerate(chunk):
-                if token in named_entities_set or token.is_punct or token.is_digit or token.is_stop:
-                    continue
-                chunk_.append(str(token))
-            if len(chunk_) != 0:
-                np.append(" ".join(chunk_))
-        result = [t for t in np if t != ""]
-        return  result
+    # @classmethod
+    # def extract_noun_chunks(self, string):
+    #     doc=nlp(string.lower())
+    #     prohibited_ents = {"MONEY", "DATE", "TIME", "QUANTITY", "CARDINAL", "PERCENT"}
+    #     named_entities = [ents for ents in doc.ents if str(ents.label_) not in prohibited_ents]
+    #     named_entities_set = set(
+    #         [token for word in named_entities for token in word if not token.is_punct and not token.is_digit])
+    #     np = [" ".join([str(ent) for ent in doc.ents if str(ent.label_) not in prohibited_ents])]
+    #     for chunk in doc.noun_chunks:
+    #         chunk_ = []
+    #         for i, token in enumerate(chunk):
+    #             if token in named_entities_set or token.is_punct or token.is_digit or token.is_stop:
+    #                 continue
+    #             chunk_.append(str(token))
+    #         if len(chunk_) != 0:
+    #             np.append(" ".join(chunk_))
+    #     result = [t for t in np if t != ""]
+    #     return  result
     @classmethod
     def extract_nouns(cls, string):
         doc = nlp(string.lower())
@@ -274,6 +276,9 @@ class FeatureExtraction:
         for token in doc:
             if token.pos_ in ["NOUN", "PROPN"] and not FeatureExtraction.is_illegal(token):
                 nouns.append(token.text)
+        if list(set(nouns)) is None:
+            raise ValueError(f"Noun list cannot return None: {doc}")
+       
         return list(set(nouns))
 
 
@@ -281,19 +286,18 @@ class FeatureExtraction:
     def is_illegal(cls, token):
         return any([token.is_punct,
                     token.is_digit,
-                    token.is_stop
                     ])
 
 
 
     @classmethod
     def stemming(cls, string_list:List[str], stemmer = None) -> List[str]:
+        if stemmer is None:
+            stemmer = SnowballStemmer("english")
         stemmed_strings = []
         for string in string_list:
             string.replace("-", "")
             doc = nlp(string)
-            if stemmer is None:
-                stemmer = SnowballStemmer("english")
             stemmed_strings.append(" ".join([stemmer.stem(token.text) for token in doc if not FeatureExtraction.is_illegal(token)]))
         return [string for string in stemmed_strings if string != " "]
 
@@ -321,18 +325,20 @@ class FeatureExtraction:
 
     # search through the original words to retrieve the keywords associated to the stem in a new
     @classmethod
-    def fuzzy_match_categories(cls, test_categories, target_categories):
+    def fuzzy_match_categories(cls, test_categories:List, target_categories:List):
         matched_categories = []
         for word in test_categories:
             match = FeatureExtraction.fuzzymatch(target_categories, word)
             if match:
                 matched_categories.append(match)
+            else:
+                matched_categories.append(word)
         return matched_categories
 
     @classmethod
-    def fuzzymatch(target_words, test_word):
+    def fuzzymatch(cls, target_words, test_word):
         for target_word in target_words:
-            if distance.edit_distance(test_word, target_word) <= 1:
+            if distance.edit_distance(test_word, target_word) <= 2:
                 return target_word
         return None
 
