@@ -316,7 +316,7 @@ class FeatureExtraction:
         for t in doc:
             pos_series = pd.Series({"token": t,
                                     "pos": t.pos_,
-                                    "lemma": t.lemma_,
+                                    "head": t.head,
                                     "dep": t.dep_,
                                     "children": [child for child in t.children]
                                     })
