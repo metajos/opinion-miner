@@ -341,6 +341,12 @@ class FeatureExtraction:
             if distance.edit_distance(test_word, target_word) <= 2:
                 return target_word
         return None
+    
+    @classmethod
+    def clean_sentence(cls, sentence:str)-> List[str]:
+        doc = nlp(sentence)
+        strings = " ".join([token.text.lower() for token in doc if not FeatureExtraction.is_illegal(token) and not token.is_stop])
+        return strings
 
 
 
