@@ -13,6 +13,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from nltk.metrics import distance
 import itertools
 
+
 nlp = spacy.load("en_core_web_md")
 basepath = os.getcwd()
 raw_txt_dir = "data"
@@ -71,7 +72,7 @@ class Product:
 
     def __init__(self, product, string):
         self.id:int = Product.next_id()
-        self.name: str = product.split(".")[0].split("/")[-1]
+        self.name: str = product.split(".")[0].split("/")[-1].lower()
         self.reviews: List[Review] = self.parse_reviews(string)
         self.raw_string:str = string
         self.sentences: List[Sentence] = self.get_all_sentences()
@@ -144,7 +145,7 @@ class Review:
         self.product_id:int = product.id
         # Process each review into its subsequent sentences
         self.sentence_tuples:list[tuple] = self.split_stream(string)
-        self.sentences: list[Sentence] = [Sentence(self.id, self.product_id, tup[0], tup[1]) for tup in self.sentence_tuples if tup is not None]
+        self.sentences: list[Sentence] = [Sentence(self.id, self.product_id, product.name,tup[0], tup[1]) for tup in self.sentence_tuples if tup is not None]
 
     def split_stream(self, stream:str):
         try:
@@ -180,18 +181,20 @@ class Sentence:
         return next
 
 
-    def __init__(self, review_id, product_id, ground_truth_score, string):
+    def __init__(self, review_id, product_id,product_name, ground_truth_score, string):
         self.sentence_id:int = Sentence.next_id()
+        self.product_name = product_name
         self.product_id: int = product_id
         self.review_id: int = review_id
         self.sentence: str = string
         self.gt_categories, self.gt_scores = self.extract_ground_scores_and_categories(ground_truth_score)
-        self.series = pd.Series({"Product_ID":self.product_id,
+        self.series = pd.Series({"Product_name":self.product_name,
+                                    "Product_ID":self.product_id,
                                     "Review_ID":self.review_id,
                                  "Sentence_ID":self.sentence_id,
                                     "Sentence":self.sentence,
                                     "gt_categories":self.gt_categories,
-                                    "gt_score" :self.gt_scores})
+                                    "gt_score" :sum(self.gt_scores)})
 
     def extract_ground_scores_and_categories(self, string)-> List[Tuple[str, int]]:
         pattern = r"(?:[\w\s-]*?\[[+|-]\d\])"
@@ -251,24 +254,7 @@ class FeatureExtraction:
         if result is None:
             raise ValueError("Category extraction can't return None")
         return result
-    # @classmethod
-    # def extract_noun_chunks(self, string):
-    #     doc=nlp(string.lower())
-    #     prohibited_ents = {"MONEY", "DATE", "TIME", "QUANTITY", "CARDINAL", "PERCENT"}
-    #     named_entities = [ents for ents in doc.ents if str(ents.label_) not in prohibited_ents]
-    #     named_entities_set = set(
-    #         [token for word in named_entities for token in word if not token.is_punct and not token.is_digit])
-    #     np = [" ".join([str(ent) for ent in doc.ents if str(ent.label_) not in prohibited_ents])]
-    #     for chunk in doc.noun_chunks:
-    #         chunk_ = []
-    #         for i, token in enumerate(chunk):
-    #             if token in named_entities_set or token.is_punct or token.is_digit or token.is_stop:
-    #                 continue
-    #             chunk_.append(str(token))
-    #         if len(chunk_) != 0:
-    #             np.append(" ".join(chunk_))
-    #     result = [t for t in np if t != ""]
-    #     return  result
+
     @classmethod
     def extract_nouns(cls, string):
         doc = nlp(string.lower())
@@ -288,8 +274,20 @@ class FeatureExtraction:
                     token.is_digit,
                     ])
 
+    @classmethod
+    def add_negations(cls, sentence):
+        doc = [token for token in nlp(sentence)]
+        negation_tokens = ['not', 'no', 'never', "n't"]
+        new_sentence = []
 
+        for i, token in enumerate(doc):
+            word = token.text
+            if i > 0 and doc[i-1].text.lower() in negation_tokens:
+                word = f"NOT_{word}"
+            new_sentence.append(word)
 
+        return " ".join(new_sentence)
+        
     @classmethod
     def stemming(cls, string_list:List[str], stemmer = None) -> List[str]:
         if stemmer is None:
@@ -300,6 +298,7 @@ class FeatureExtraction:
             doc = nlp(string)
             stemmed_strings.append(" ".join([stemmer.stem(token.text) for token in doc if not FeatureExtraction.is_illegal(token)]))
         return [string for string in stemmed_strings if string != " "]
+
 
     @classmethod
     def remove_stop(cls, string_list:List[str]) -> List[str]:
@@ -347,8 +346,26 @@ class FeatureExtraction:
         doc = nlp(sentence)
         strings = " ".join([token.text.lower() for token in doc if not FeatureExtraction.is_illegal(token) and not token.is_stop])
         return strings
+    
+
+    
+    @classmethod
+    def deconstruct_sentence(cls, stemmed_sentence):
+        sentence_str = stemmed_sentence.split(" ")
+        sentence_set = set(sentence_str)
+        return sentence_set, sentence_str
+        
 
 
-
-
-
+class classification:
+    
+    @classmethod
+    def classify(x, y, x_test, y_test, vectorizer, classifier):
+    # This is a custom pipeline object for training a model which returns validation and prediction vectors
+        x_v = vectorizer.fit_transform(x)
+        y_v = vectorize_Y(y)
+        model = classifier.fit(x_v, y_v)
+        x_test_v = vectorizer.transform(x_test)
+        predictions = model.predict(x_test_v)
+        validations = vectorize_Y(y_test)
+        return validations, predictions
