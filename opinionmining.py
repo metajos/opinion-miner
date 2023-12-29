@@ -10,8 +10,10 @@ from IPython.display import display
 from nltk.stem import PorterStemmer, LancasterStemmer, SnowballStemmer
 from collections import Counter
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score
 from nltk.metrics import distance
-import itertools
+from matplotlib import pyplot as plt
+import seaborn as sns
 
 
 nlp = spacy.load("en_core_web_md")
@@ -356,16 +358,24 @@ class FeatureExtraction:
         return sentence_set, sentence_str
         
 
+def conf_matrix(validations, predictions, cfm):
+    # This function plots a confusion matrix
+    percentages = ["{0:.2%}".format(value) for value in cfm.flatten() / np.sum(cfm)]
+    labels = np.array([f"True Neg:{cfm[0][0]} \n {percentages[0]}", f"False Pos:{cfm[0][1]} \n  {percentages[1]}",
+                       f"False Neg: {cfm[1][0]} \n {percentages[2]}",
+                       f"True Pos: {cfm[1][1]} \n {percentages[3]}"]).reshape(2, 2)
+    confusion_matrix = pd.crosstab(validations, predictions, rownames=['Actual'], colnames=['Predicted'])
+    sns.heatmap(confusion_matrix, annot=labels, fmt="",
+                cmap=sns.cubehelix_palette(start=.5, rot=.75, reverse=True, as_cmap=True))
+    plt.show()
 
-class classification:
-    
-    @classmethod
-    def classify(x, y, x_test, y_test, vectorizer, classifier):
-    # This is a custom pipeline object for training a model which returns validation and prediction vectors
-        x_v = vectorizer.fit_transform(x)
-        y_v = vectorize_Y(y)
-        model = classifier.fit(x_v, y_v)
-        x_test_v = vectorizer.transform(x_test)
-        predictions = model.predict(x_test_v)
-        validations = vectorize_Y(y_test)
-        return validations, predictions
+
+def accuracy_table(validations, predictions, model_name):
+    # This function returns a dataframe with the accuracy, precision, recall and f1 score of a model
+    accuracy = accuracy_score(validations, predictions)
+    precision = precision_score(validations, predictions)
+    recall = recall_score(validations, predictions)
+    f1 = f1_score(validations, predictions)
+    return pd.DataFrame({"Model": model_name, "Accuracy": accuracy, "Precision": precision, "Recall": recall, "F1": f1},
+                        index=[0])
+
