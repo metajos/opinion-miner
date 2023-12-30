@@ -365,17 +365,16 @@ def conf_matrix(validations, predictions, cfm):
                        f"False Neg: {cfm[1][0]} \n {percentages[2]}",
                        f"True Pos: {cfm[1][1]} \n {percentages[3]}"]).reshape(2, 2)
     confusion_matrix = pd.crosstab(validations, predictions, rownames=['Actual'], colnames=['Predicted'])
-    sns.heatmap(confusion_matrix, annot=labels, fmt="",
-                cmap=sns.cubehelix_palette(start=.5, rot=.75, reverse=True, as_cmap=True))
-    plt.show()
+
+    with plt.style.context({'figure.facecolor': 'white'}): 
+        sns.heatmap(confusion_matrix, annot=labels, fmt="", cmap=sns.cubehelix_palette(start=1.5, rot=0.4, dark=.5, light=.75,reverse=False, as_cmap=True))
+        plt.show()
 
 
 def accuracy_table(validations, predictions, model_name):
     # This function returns a dataframe with the accuracy, precision, recall and f1 score of a model
     accuracy = accuracy_score(validations, predictions)
     precision = precision_score(validations, predictions)
-    recall = recall_score(validations, predictions)
-    f1 = f1_score(validations, predictions)
-    return pd.DataFrame({"Model": model_name, "Accuracy": accuracy, "Precision": precision, "Recall": recall, "F1": f1},
+    return pd.DataFrame({"Model": model_name, "Accuracy": accuracy, "Precision": precision},
                         index=[0])
 
