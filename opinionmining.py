@@ -365,10 +365,8 @@ def conf_matrix(validations, predictions, cfm):
                        f"False Neg: {cfm[1][0]} \n {percentages[2]}",
                        f"True Pos: {cfm[1][1]} \n {percentages[3]}"]).reshape(2, 2)
     confusion_matrix = pd.crosstab(validations, predictions, rownames=['Actual'], colnames=['Predicted'])
+    return sns.heatmap(confusion_matrix, annot=labels, fmt="", cmap=sns.cubehelix_palette(start=1.5, rot=0.4, dark=.5, light=.75,reverse=False, as_cmap=True))
 
-    with plt.style.context({'figure.facecolor': 'white'}): 
-        sns.heatmap(confusion_matrix, annot=labels, fmt="", cmap=sns.cubehelix_palette(start=1.5, rot=0.4, dark=.5, light=.75,reverse=False, as_cmap=True))
-        plt.show()
 
 
 def accuracy_table(validations, predictions, model_name):
